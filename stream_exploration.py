@@ -35,100 +35,122 @@ def make_binned_averages(data, feature, target, bw, bmin=0, bmax=0):
 
     sf.loc[:, 'binrange'] = pd.cut(sf[feature], bins=bins)
 
-    g = sf.groupby('binrange')[target]
+    # g = sf.groupby('binrange')[target]
 
-    nr = g.value_counts()[g.value_counts().index.get_level_values(1) == 0].tolist()
-    nc = n - nr
-    ntup = namedtuple("BinnedData", ["r", "means", "churned", "retained", "bins"])
+    # nr = g.value_counts()[g.value_counts().index.get_level_values(1) == 0].tolist()
+    # nc = n - nr
+    # ntup = namedtuple("BinnedData", ["r", "means", "churned", "retained", "bins"])
 
-    return ntup(m, g.mean(), nc, nr, bins)
+    # return ntup(m, g.mean(), nc, nr, bins)
+    g = sf.groupby('binrange')[target].mean()
+
+    ntup = namedtuple("BinnedData", ["r", "means", "feature", "target", "bins"])
+
+    return ntup(m, g, sf[feature], sf[target], bins)
 
 
 if __name__ == '__main__':
 
-    # st. set_page_config(layout="wide")
+    st. set_page_config(layout="wide")
+    pd.options.plotting.backend = "plotly"
 
     df = pd.read_csv('ibm_telco_customer_churn.csv')
 
     check_nans = df.isna().sum()
     print(check_nans[check_nans != 0].to_string())
 
-    churn_fraction = df['Churn Value'].mean()
-
-    fig = px.histogram(x=df['Churn Label'], color=df['Churn Label'],
-                       title=f'Churned Percent = {churn_fraction*100:.3f}%',)
-
-    st.plotly_chart(fig, theme="streamlit")
-
     df = df[df['Churn Reason'] != 'Deceased']
 
-    wcfig, wcax = plt.subplots()
-    text = df['Churn Reason'].dropna().str.cat()
+    tab1, tab2 = st.tabs(["Churn Reasons", "Charts"])
 
-    wc_kws = dict(collocations=False, width=1920, height=1080, background_color=None, mode='RGBA')
+    with tab1:
+        col0, col1 = st.columns(2)
+        histfig = px.histogram(x=df['Churn Reason']).update_xaxes(categoryorder='total descending')
 
-    word_cloud = WordCloud(**wc_kws).generate(text)
+        col0.plotly_chart(histfig, use_container_width=True)
 
-    wcfig = px.imshow(word_cloud, aspect='auto', )
-    wcfig.update_xaxes(visible=False)
-    wcfig.update_yaxes(visible=False)
+        text = df['Churn Reason'].dropna().str.cat()
 
-    sfig = make_subplots(rows=1, cols=2)
+        wc_kws = dict(collocations=False, width=1920, height=1080,
+                      background_color=None, mode='RGBA')
 
-    histfig = go.Histogram(x=df['Churn Reason'])
+        word_cloud = WordCloud(**wc_kws).generate(text)
 
-    sfig.add_trace(histfig, row=1, col=1)
-    sfig.add_trace(wcfig.data[0], row=1, col=2)
+        wcfig = px.imshow(word_cloud, aspect='auto', )
+        wcfig.update_xaxes(visible=False)
+        wcfig.update_yaxes(visible=False)
 
-    sfig.update_xaxes(row=1, col=1, categoryorder='total descending')
-    sfig.update_xaxes(row=1, col=2, visible=False)
-    sfig.update_yaxes(row=1, col=2, visible=False)
+        col1.plotly_chart(wcfig, use_container_width=True)
 
-    st.plotly_chart(sfig, theme="streamlit", use_container_width=True)
+    with tab2:
+        col0, col1 = st.columns(2)
+        churn_fraction = df['Churn Value'].mean()
 
-    temporal_features = ["Monthly Charges", "Tenure Months", "Total Charges"]
-    target = 'Churn Value'
+        fig = px.histogram(x=df['Churn Label'], color=df['Churn Label'],
+                           title=f'Churned Percent = {churn_fraction*100:.3f}%',)
 
-    df['Total Charges'].replace(' ', 0, inplace=True)
-    df['Total Charges'] = df['Total Charges'].astype(float)
+        st.plotly_chart(fig, theme="streamlit")
 
-    f0d = make_binned_averages(df, temporal_features[0], target, bw=5, bmin=15, bmax=120)
-    f1d = make_binned_averages(df, temporal_features[1], target, bw=2, bmin=-0.5)
+        target = 'Churn Value'
 
-    # h0dat = px.histogram(x=f0d.feature, color=f0d.target).data
-    # h1dat = px.histogram(x=f1d.feature, color=f1d.target).data
+        temporal_features = ["Monthly Charges", "Tenure Months", "Total Charges"]
+        binary_features = ["Senior Citizen", "Partner", "Dependents", "Paperless Billing",
+                           "Phone Service"]
+        multiopt_features = ['Internet Service', 'Contract', 'Payment Method']
+        online_features = ['Online Security', 'Online Backup', 'Device Protection', 'Tech Support',
+                           'Streaming TV', 'Streaming Movies']
 
-    tpfig = make_subplots(rows=2, cols=2)
+        df['Total Charges'].replace(' ', 0, inplace=True)
+        df['Total Charges'] = df['Total Charges'].astype(float)
 
-    tpfig.add_trace(go.Scatter(x=f0d.r, y=f0d.means, mode='lines'), row=1, col=1)
-    tpfig.add_trace(go.Scatter(x=f1d.r, y=f1d.means, mode='lines'), row=2, col=1)
+        f0d = make_binned_averages(df, temporal_features[0], target, bw=5, bmin=15, bmax=120)
+        f1d = make_binned_averages(df, temporal_features[1], target, bw=2, bmin=-0.5)
 
-    tpfig.add_trace(go.Bar(x=f0d.bins, y=f0d.retained, offsetgroup=0), row=1, col=2)
-    tpfig.add_trace(go.Bar(x=f0d.bins, y=f0d.churned, base=f0d.retained, offsetgroup=0),
-                    row=1, col=2)
+        fig0 = px.line(x=f0d.r, y=f0d.means, markers=True)
+        fig1 = px.histogram(x=f0d.feature, color=f0d.target, nbins=30)
 
-    tpfig.add_trace(go.Bar(x=f1d.bins, y=f1d.retained, offsetgroup=0), row=2, col=2)
-    tpfig.add_trace(go.Bar(x=f1d.bins, y=f1d.churned, base=f1d.retained, offsetgroup=0),
-                    row=2, col=2)
+        col0.plotly_chart(fig0, use_container_width=True)
+        col0.plotly_chart(fig1, use_container_width=True)
 
-    st.plotly_chart(tpfig, use_container_width=True)
+        fig0 = px.line(x=f1d.r, y=f1d.means, markers=True)
+        fig1 = px.histogram(x=f1d.feature, color=f1d.target)
 
-    binary_features = ["Senior Citizen", "Partner", "Dependents", "Paperless Billing", "Phone Service"]
+        col1.plotly_chart(fig0, use_container_width=True)
+        col1.plotly_chart(fig1, use_container_width=True)
 
-    online_features = ['Online Security', 'Online Backup', 'Device Protection', 'Tech Support', 'Streaming TV', 'Streaming Movies',]
+        h = df.loc[:, binary_features].apply(lambda col: col.value_counts()).T.fillna(0)
+        k = df.loc[:, binary_features].apply(lambda col: df.groupby(col)[target].mean()).fillna(0).T
 
-    target = 'Churn Value'
+        fig0 = h[['Yes', 'No']].plot.bar()
+        fig1 = k[['Yes', 'No']].plot.bar().update_layout(barmode='group')
 
-    h = df.loc[:, binary_features].apply(lambda col: col.value_counts()).T.fillna(0)
-    hf = df.loc[:, binary_features].apply(lambda col: df.groupby(col)[target].mean()).fillna(0).T
+        col0.plotly_chart(fig0, use_container_width=True)
+        col1.plotly_chart(fig1, use_container_width=True)
 
-    bpfig = make_subplots(rows=1, cols=2)
+        lst_df = []
+        for feature in multiopt_features:
+            g = df.loc[:, [feature, 'Churn Value']].groupby(feature).mean().reset_index()
+            g.rename(columns={feature: 'feature'}, inplace=True)
+            g['topic'] = [feature] * len(g)
+            lst_df.append(g)
 
-    bpfig.add_trace(go.Bar(y=h.loc[:, 'No'], offsetgroup=0), row=1, col=1)
-    bpfig.add_trace(go.Bar(y=h.loc[:, 'Yes'], base=h['No'], offsetgroup=0), row=1, col=1)
+        cf = pd.concat(lst_df)
 
-    bpfig.add_trace(go.Bar(y=hf.loc[:, 'Yes']), row=1, col=2)
-    bpfig.add_trace(go.Bar(y=hf.loc[:, 'No']), row=1, col=2)
+        counts = df.loc[:, multiopt_features].apply(pd.Series.value_counts)
 
+        counts = counts.reindex(cf.feature)
 
-    st.plotly_chart(bpfig, use_container_width=True)
+        fig0 = counts[multiopt_features].plot.bar()
+        fig1 = cf.plot.line(x='feature', y='Churn Value', color='topic', markers=True)
+
+        col0.plotly_chart(fig0, use_container_width=True)
+        col1.plotly_chart(fig1, use_container_width=True)
+
+    # fig0 = hf[['Yes', 'No']].plot.bar()
+    # fig1 = px.scatter(x=f0d.r, y=f0d.means)
+    # col1.plotly_chart(fig, use_container_width=True)
+    # bpfig.add_trace(h[['Yes', 'No']].plot.bar(), row=1, col=2)
+    # bpfig.show()
+    # gbm = lgb.Booster(model_file='lgbm_model.pkl')
+    # lgb.plot_importance(gbm, max_num_features=10, xlabel='', importance_type='gain')
+    # plt.show()
