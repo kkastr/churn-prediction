@@ -35,16 +35,18 @@ def make_binned_averages(data, feature, target, bw, bmin=0, bmax=0):
 
     sf.loc[:, 'binrange'] = pd.cut(sf[feature], bins=bins)
 
-    g = sf.groupby('binrange')[target].mean()
+    g = sf.groupby('binrange')[target]
 
-    ntup = namedtuple("BinnedData", ["r", "means", "feature", "target", "bins"])
+    nr = g.value_counts()[g.value_counts().index.get_level_values(1) == 0].tolist()
+    nc = n - nr
+    ntup = namedtuple("BinnedData", ["r", "means", "churned", "retained", "bins"])
 
-    return ntup(m, g, sf[feature], sf[target], bins)
+    return ntup(m, g.mean(), nc, nr, bins)
 
 
 if __name__ == '__main__':
 
-    st. set_page_config(layout="wide")
+    # st. set_page_config(layout="wide")
 
     df = pd.read_csv('ibm_telco_customer_churn.csv')
 
@@ -93,13 +95,40 @@ if __name__ == '__main__':
     f0d = make_binned_averages(df, temporal_features[0], target, bw=5, bmin=15, bmax=120)
     f1d = make_binned_averages(df, temporal_features[1], target, bw=2, bmin=-0.5)
 
-    # tpfig = make_subplots(rows=2, cols=2)
+    # h0dat = px.histogram(x=f0d.feature, color=f0d.target).data
+    # h1dat = px.histogram(x=f1d.feature, color=f1d.target).data
 
-    # tpfig.add_trace(go.Scatter(x=f0d.r, y=f0d.means, mode='lines'), row=1, col=1)
-    # tpfig.add_trace(go.Scatter(x=f1d.r, y=f1d.means, mode='lines'), row=2, col=1)
-    # tpfig.add_trace(px.histogram(x=f0d.feature, y=f0d.target, nbins=30).data[0], row=1, col=2)
-    # # tpfig.add_trace(go.Histogram(x=f0d.feature, y=f0d.target))
+    tpfig = make_subplots(rows=2, cols=2)
 
-    # # tpfig.update_trace(row=1, col=1, barmode='stack')
+    tpfig.add_trace(go.Scatter(x=f0d.r, y=f0d.means, mode='lines'), row=1, col=1)
+    tpfig.add_trace(go.Scatter(x=f1d.r, y=f1d.means, mode='lines'), row=2, col=1)
 
-    # st.plotly_chart(tpfig, theme="streamlit", use_container_width=True)
+    tpfig.add_trace(go.Bar(x=f0d.bins, y=f0d.retained, offsetgroup=0), row=1, col=2)
+    tpfig.add_trace(go.Bar(x=f0d.bins, y=f0d.churned, base=f0d.retained, offsetgroup=0),
+                    row=1, col=2)
+
+    tpfig.add_trace(go.Bar(x=f1d.bins, y=f1d.retained, offsetgroup=0), row=2, col=2)
+    tpfig.add_trace(go.Bar(x=f1d.bins, y=f1d.churned, base=f1d.retained, offsetgroup=0),
+                    row=2, col=2)
+
+    st.plotly_chart(tpfig, use_container_width=True)
+
+    binary_features = ["Senior Citizen", "Partner", "Dependents", "Paperless Billing", "Phone Service"]
+
+    online_features = ['Online Security', 'Online Backup', 'Device Protection', 'Tech Support', 'Streaming TV', 'Streaming Movies',]
+
+    target = 'Churn Value'
+
+    h = df.loc[:, binary_features].apply(lambda col: col.value_counts()).T.fillna(0)
+    hf = df.loc[:, binary_features].apply(lambda col: df.groupby(col)[target].mean()).fillna(0).T
+
+    bpfig = make_subplots(rows=1, cols=2)
+
+    bpfig.add_trace(go.Bar(y=h.loc[:, 'No'], offsetgroup=0), row=1, col=1)
+    bpfig.add_trace(go.Bar(y=h.loc[:, 'Yes'], base=h['No'], offsetgroup=0), row=1, col=1)
+
+    bpfig.add_trace(go.Bar(y=hf.loc[:, 'Yes']), row=1, col=2)
+    bpfig.add_trace(go.Bar(y=hf.loc[:, 'No']), row=1, col=2)
+
+
+    st.plotly_chart(bpfig, use_container_width=True)
