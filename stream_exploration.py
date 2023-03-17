@@ -2,6 +2,7 @@ import numpy as np
 import polars as pl
 import pandas as pd
 import seaborn as sns
+import plotly.tools as ptls
 import plotly.io as pio
 import plotly.express as px
 import plotly.graph_objects as go
@@ -61,26 +62,27 @@ if __name__ == '__main__':
 
     df = df[df['Churn Reason'] != 'Deceased']
 
-    tab1, tab2 = st.tabs(["Churn Reasons", "Charts"])
+    tab1, tab2, tab3 = st.tabs(["Churn Reasons", "Charts", "Model Results"])
 
-    with tab1:
-        col0, col1 = st.columns(2)
-        histfig = px.histogram(x=df['Churn Reason']).update_xaxes(categoryorder='total descending')
+    # with tab1:
+    #     col0, col1 = st.columns(2)
+    #     histfig = px.histogram(x=df['Churn Reason']).update_xaxes(categoryorder='total descending')
+    #     histfig.update_layout(title='Churn Reasons')
+    #     col0.plotly_chart(histfig, use_container_width=True)
 
-        col0.plotly_chart(histfig, use_container_width=True)
+    #     text = df['Churn Reason'].dropna().str.cat()
 
-        text = df['Churn Reason'].dropna().str.cat()
+    #     wc_kws = dict(collocations=False, width=1920, height=1080,
+    #                   background_color=None, mode='RGBA')
 
-        wc_kws = dict(collocations=False, width=1920, height=1080,
-                      background_color=None, mode='RGBA')
+    #     word_cloud = WordCloud(**wc_kws).generate(text)
 
-        word_cloud = WordCloud(**wc_kws).generate(text)
+    #     wcfig = px.imshow(word_cloud, aspect='auto', )
+    #     wcfig.update_xaxes(visible=False)
+    #     wcfig.update_yaxes(visible=False)
+    #     wcfig.update_layout(title='Churn Reason Word Cloud')
 
-        wcfig = px.imshow(word_cloud, aspect='auto', )
-        wcfig.update_xaxes(visible=False)
-        wcfig.update_yaxes(visible=False)
-
-        col1.plotly_chart(wcfig, use_container_width=True)
+    #     col1.plotly_chart(wcfig, use_container_width=True)
 
     with tab2:
         col0, col1 = st.columns(2)
@@ -125,7 +127,7 @@ if __name__ == '__main__':
         fig1 = k[['Yes', 'No']].plot.bar().update_layout(barmode='group')
 
         col0.plotly_chart(fig0, use_container_width=True)
-        col1.plotly_chart(fig1, use_container_width=True)
+        col0.plotly_chart(fig1, use_container_width=True)
 
         lst_df = []
         for feature in multiopt_features:
@@ -143,14 +145,34 @@ if __name__ == '__main__':
         fig0 = counts[multiopt_features].plot.bar()
         fig1 = cf.plot.line(x='feature', y='Churn Value', color='topic', markers=True)
 
-        col0.plotly_chart(fig0, use_container_width=True)
+        col1.plotly_chart(fig0, use_container_width=True)
         col1.plotly_chart(fig1, use_container_width=True)
 
-    # fig0 = hf[['Yes', 'No']].plot.bar()
-    # fig1 = px.scatter(x=f0d.r, y=f0d.means)
-    # col1.plotly_chart(fig, use_container_width=True)
-    # bpfig.add_trace(h[['Yes', 'No']].plot.bar(), row=1, col=2)
-    # bpfig.show()
-    # gbm = lgb.Booster(model_file='lgbm_model.pkl')
-    # lgb.plot_importance(gbm, max_num_features=10, xlabel='', importance_type='gain')
-    # plt.show()
+    with tab3:
+        col0, col1 = st.columns(2)
+        gbm = lgb.Booster(model_file='lgbm_model.pkl')
+
+        z = [[0.41, 0.09], [0.027, 0.47]]
+        z = z[::-1]
+        xl = ['Not Churned', 'Churned']
+        yl = xl[::-1]
+
+        zl = [[str(y) for y in x] for x in z]
+
+        hmapfig = ff.create_annotated_heatmap(z, x=xl, y=yl,
+                                              annotation_text=zl, colorscale='Viridis')
+        hmapfig.update_layout(title='Confusion Matrix', yaxis_title='True Label',
+                              xaxis_title='Predicted Label')
+        col0.plotly_chart(hmapfig, use_container_width=True)
+
+        imf = pd.DataFrame(columns=['feature', 'importance'])
+        imf.loc[:, 'feature'] = gbm.feature_name()
+        imf.loc[:, 'importance'] = gbm.feature_importance(importance_type='gain')
+        imf.sort_values(by='importance', ascending=False, inplace=True)
+
+        impfig = px.bar(x=imf.feature.iloc[:15], y=imf.importance.iloc[:15])
+        impfig.update_xaxes(categoryorder='total descending')
+
+        impfig.update_layout(title='15 Most Important Features', xaxis_title="Feature",
+                             yaxis_title="Importance")
+        col1.plotly_chart(impfig, use_container_width=True)
