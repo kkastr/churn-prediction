@@ -64,25 +64,25 @@ if __name__ == '__main__':
 
     tab1, tab2, tab3 = st.tabs(["Churn Reasons", "Charts", "Model Results"])
 
-    # with tab1:
-    #     col0, col1 = st.columns(2)
-    #     histfig = px.histogram(x=df['Churn Reason']).update_xaxes(categoryorder='total descending')
-    #     histfig.update_layout(title='Churn Reasons')
-    #     col0.plotly_chart(histfig, use_container_width=True)
+    with tab1:
+        col0, col1 = st.columns(2)
+        histfig = px.histogram(x=df['Churn Reason']).update_xaxes(categoryorder='total descending')
+        histfig.update_layout(title='Churn Reasons')
+        col0.plotly_chart(histfig, use_container_width=True)
 
-    #     text = df['Churn Reason'].dropna().str.cat()
+        text = df['Churn Reason'].dropna().str.cat()
 
-    #     wc_kws = dict(collocations=False, width=1920, height=1080,
-    #                   background_color=None, mode='RGBA')
+        wc_kws = dict(collocations=False, width=1920, height=1080,
+                      background_color=None, mode='RGBA')
 
-    #     word_cloud = WordCloud(**wc_kws).generate(text)
+        word_cloud = WordCloud(**wc_kws).generate(text)
 
-    #     wcfig = px.imshow(word_cloud, aspect='auto', )
-    #     wcfig.update_xaxes(visible=False)
-    #     wcfig.update_yaxes(visible=False)
-    #     wcfig.update_layout(title='Churn Reason Word Cloud')
+        wcfig = px.imshow(word_cloud, aspect='auto', )
+        wcfig.update_xaxes(visible=False)
+        wcfig.update_yaxes(visible=False)
+        wcfig.update_layout(title='Churn Reason Word Cloud')
 
-    #     col1.plotly_chart(wcfig, use_container_width=True)
+        col1.plotly_chart(wcfig, use_container_width=True)
 
     with tab2:
         col0, col1 = st.columns(2)
